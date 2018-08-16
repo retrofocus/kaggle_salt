@@ -1,4 +1,6 @@
 data
 __pycache__
-
-
+.floyd*
+submission*
+floyd*
+.ipynb_checkpoints

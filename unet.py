@@ -137,13 +137,35 @@ class UpConv(nn.Module):
         
         return x
 
+    
+class Resizing:
+    def __init__(self, left, right, top, bottom):
+        self.top = top
+        self.bottom = bottom
+        self.left = left
+        self.right = right
+        
+        self.m = nn.ReflectionPad2d((left, right, top, bottom))
+        
+    def pad(self, imgs):
+        return self.m(imgs)
+    
+    def unpad(self, imgs):
+        return imgs[:, :, self.top:-self.bottom, self.left:-self.right]
 
 
 class UNet(nn.Module):
 
     def __init__(self, num_class, input_channel, depth, start_filters=64,
-                up_mode='transpose', merge_mode='concat'):
+                up_mode='transpose', merge_mode='concat',
+                pad_l=0, pad_r=0, pad_t=0, pad_b=0):
         super(UNet, self).__init__()
+        
+        #self.pad_l = pad_l
+        #self.pad_r = pad_r
+        #self.pad_t = pad_t
+        #self.pad_b = pad_b
+        self.rs = Resizing(pad_l, pad_r, pad_t, pad_b)
 
         if up_mode == 'bilinear' and merge_mode == 'add':
             raise ValueError("up_mode \"bilinear\" is incompatible "
@@ -196,6 +218,8 @@ class UNet(nn.Module):
             self.weight_init(m)
     
     def forward(self, x, print_size=False):
+        x = self.rs.pad(x)
+        
         if print_size:
             print("first", x.size())
 
@@ -222,6 +246,9 @@ class UNet(nn.Module):
                 print("final", x.size())
 
         x = F.sigmoid(x)
+        
+        x = self.rs.unpad(x)
+        
         return x
 
 if __name__ == "__main__":
@@ -230,8 +257,9 @@ if __name__ == "__main__":
     """
     in_ch = 1
     n_class = 1
-    model = UNet(num_class=n_class, input_channel=in_ch,  depth=5, merge_mode='concat', start_filters=32)
-    x = Variable(torch.FloatTensor(np.random.random((1, 1, 128, 128))))
+    model = UNet(num_class=n_class, input_channel=in_ch,  depth=5, merge_mode='concat', start_filters=32,
+                pad_l=13, pad_r=14, pad_t=13, pad_b=14)
+    x = Variable(torch.FloatTensor(np.random.random((1, 1, 101, 101))))
     model.forward(x, print_size=True)
 
 
