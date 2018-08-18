@@ -248,8 +248,8 @@ if __name__ == "__main__":
     """
     in_ch = 1
     n_class = 1
-    model = UNet(num_class=n_class, input_channel=in_ch,  depth=5, merge_mode='concat', start_filters=32)
-    x = Variable(torch.FloatTensor(np.random.random((1, 1, 101, 101))))
+    model = UNet(num_class=n_class, input_channel=in_ch,  depth=6, merge_mode='concat', start_filters=32)
+    x = Variable(torch.FloatTensor(np.random.random((1, 1, 128, 128))))
     model.forward(x, print_size=True)
 
 
