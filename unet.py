@@ -73,7 +73,8 @@ class DownConv(nn.Module):
             conv3x3(in_ch, out_ch, padding=1),
             nn.BatchNorm2d(out_ch),
             nn.ReLU(inplace=True),
-
+            #nn.Dropout(p=0.25),
+            
             conv3x3(out_ch, out_ch, padding=1),
             nn.BatchNorm2d(out_ch),
             nn.ReLU(inplace=True)
@@ -133,6 +134,7 @@ class UpConv(nn.Module):
         else:
             x = x_en + x_de
         
+        #x = nn.Dropout(p=0.25)(x)
         x = self.conv(x)
         
         return x
