@@ -243,6 +243,107 @@ class UNet(nn.Module):
         x = F.sigmoid(x)
         
         return x
+    
+    
+class UNetD(UNet):
+    """U-Net with depth"""
+    def __init__(self, device, num_class, input_channel, depth, start_filters=64,
+                up_mode='transpose', merge_mode='concat'):
+        super(UNet, self).__init__()
+        self.device = device
+        
+
+        if up_mode == 'bilinear' and merge_mode == 'add':
+            raise ValueError("up_mode \"bilinear\" is incompatible "
+                             "with merge_mode \"add\" at the moment "
+                             "because it doesn't make sense to use "
+                             "nearest neighbour to reduce "
+                             "depth channels (by half).")
+    
+
+
+        down_convs = []
+        up_convs = []
+
+        # creating encoder
+        for i in range(depth):
+            out_ch = start_filters * 2**i
+
+            if i == 0:
+                in_ch = input_channel
+            else:
+                in_ch = start_filters * (2 ** (i-1))
+
+            pooling = True if i < depth - 1 else False
+
+            down_conv = DownConv(in_ch, out_ch, pooling=pooling)
+            down_convs.append(down_conv)
+    
+        for i in range(depth - 1):
+            if i == 0:
+                in_ch = out_ch + 1 #depth
+            else:
+                in_ch = out_ch
+                
+            out_ch = in_ch // 2
+
+            up_conv = UpConv(in_ch, out_ch, up_mode=up_mode, merge_mode=merge_mode)
+            up_convs.append(up_conv)
+        
+        self.conv_final = conv1x1(out_ch, num_class)
+
+        self.down_convs = nn.ModuleList(down_convs)
+        self.up_convs = nn.ModuleList(up_convs)
+
+        self.reset_params()
+
+    
+    
+    def forward(self, x, depth, print_size=False):
+        """depth should be torch tensor, not cuda."""
+        
+        if print_size:
+            print("first", x.size())
+
+        encoder_outs = []
+
+        for down_conv in self.down_convs:
+            x, before_pool = down_conv(x)
+            encoder_outs.append(before_pool)
+
+            if print_size:
+                print("down", x.size())
+        
+        x_size = x.size()
+        d_size = (x_size[0], 1, x_size[2], x_size[3])
+        d = torch.ones(d_size) * depth[:, None, None, None]
+        d = d.to(self.device)
+        
+        x = torch.cat([x, d], 1)
+        
+        if print_size:
+                print("middle", x.size())
+        
+        
+        
+        for i, up_conv in enumerate(self.up_convs):
+            before_pool = encoder_outs[-(i+2)]
+            x = up_conv(before_pool, x)
+
+            if print_size:
+                print("up", x.size())
+
+        
+        x = self.conv_final(x)
+        
+        if print_size:
+                print("final", x.size())
+
+        x = F.sigmoid(x)
+        
+        return x
+    
+    
 
 if __name__ == "__main__":
     """
@@ -250,9 +351,10 @@ if __name__ == "__main__":
     """
     in_ch = 1
     n_class = 1
-    model = UNet(num_class=n_class, input_channel=in_ch,  depth=6, merge_mode='concat', start_filters=32)
+    model = UNetD(num_class=n_class, input_channel=in_ch,  depth=6, merge_mode='concat', start_filters=32)
     x = Variable(torch.FloatTensor(np.random.random((1, 1, 128, 128))))
-    model.forward(x, print_size=True)
+    model.forward(x, 100, print_size=True)
+    #print(model)
 
 
 
